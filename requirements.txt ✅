@@ -1,0 +1,13 @@
+speechrecognition
+pyaudio
+mss
+pillow
+torch
+torchvision
+opencv-python
+numpy
+pyttsx3
+requests
+ultralytics
+open_clip_torch
+openai
