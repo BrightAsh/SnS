@@ -2,6 +2,7 @@ import time
 import cv2
 from utils.tts import speak
 from voice.listener import listen_for_command
+from gpt.commands import interpret_command
 
 def show_detected_image(image, detections):
     """
@@ -10,29 +11,37 @@ def show_detected_image(image, detections):
     :param detections: 탐지 결과 리스트 (bbox, class_id, confidence 포함)
     """
     print("[시각화] 탐지 결과를 이미지에 표시합니다...")
-    # 객체 번호 출력
+
     for i, obj in enumerate(detections):
-        print(f"[객체 {i + 1}] {obj}")  # 객체 번호 및 이름 출력
+        print(f"[객체 {i + 1}] {obj}")
 
     display_image = image.copy()
 
     for idx, det in enumerate(detections):
         x1, y1, x2, y2 = det["bbox"]
-        label = f"{idx+1}번"
+        label = f"No.{idx + 1}"  # ✅ 한글 제거, 영어로
 
-        # 바운딩 박스
-        cv2.rectangle(display_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        # 빨간색 바운딩 박스
+        cv2.rectangle(display_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
 
-        # 번호 라벨
-        cv2.putText(display_image, label, (x1, y1 - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+        # 텍스트 중앙 상단 위치 계산
+        text_size, _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
+        text_width = text_size[0]
+        label_x = x1 + (x2 - x1) // 2 - text_width // 2
+        label_y = y1 - 10
 
+        # 텍스트 출력 (빨간색)
+        cv2.putText(display_image, label, (label_x, label_y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
+
+    # 이미지 창 띄우기
     cv2.imshow("탐지 결과", display_image)
-    speak('몇 번 제품을 확인할까요?')
-    n_obj = listen_for_command()  # 사용자의 음성 명령을 기다림
-    cv2.destroyAllWindows()  # 창을 닫지 않고 코드 진행
-    return n_obj
-
+    cv2.waitKey(1)  # 바로 코드 진행
+    speak(f'1번부터 {len(detections)}번 제품 중 무엇을 확인할까요?')
+    n_obj = listen_for_command()
+    result = interpret_command(n_obj)
+    cv2.destroyAllWindows()
+    return result
 
 
 if __name__ == "__main__":
