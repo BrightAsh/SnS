@@ -57,7 +57,7 @@ if __name__ == '__main__':
     from gpt.product_name_generator import generate_product_name
 
     # 1. crop된 이미지 파일 경로
-    image_path = "D:/Lecture/CV/SnS/assets/test_image_1.jpg"
+    image_path = "D:/Lecture/CV/SnS/assets/test_image_2.jpg"
     cropped = cv2.imread(image_path)
 
     if cropped is None:
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     product_name = generate_product_name(cropped, clip_label)
     print(f"🧠 GPT 추론 제품명: {product_name}")
 
-    # 4. 시각화
-    cv2.imshow("Crop 테스트 이미지", cropped)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+    # # 4. 시각화
+    # cv2.imshow("Crop 테스트 이미지", cropped)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
