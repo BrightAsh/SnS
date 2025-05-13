@@ -11,3 +11,4 @@ requests
 ultralytics
 open_clip_torch
 openai
+PyQt5
