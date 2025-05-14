@@ -1,5 +1,5 @@
-# overlay_labels/LiveOverlay.py (해시 기반 제품 ID 매핑 적용)
-
+# overlay_labels/LiveOverlay.py (webbrowser.open 스레드 분리 적용)
+import time
 import mss
 import cv2
 import numpy as np
@@ -39,9 +39,10 @@ class LiveOverlay(QWidget):
         self.voice_thread = None
         self.running = True
 
-        self.hash_to_id = {}      # 해시 → 고유 ID
-        self.id_to_bbox = {}      # ID → bbox
-        self.next_id = 0          # 다음 부여할 번호
+        self.hash_to_id = {}
+        self.id_to_bbox = {}
+        self.id_to_full_info = {}
+        self.next_id = 0
 
         self.setWindowFlags(
             Qt.FramelessWindowHint |
@@ -57,13 +58,12 @@ class LiveOverlay(QWidget):
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_detections)
-        self.timer.start(100)
+        self.timer.start(80)
 
         self.start_voice_thread()
 
     def update_detections(self):
         self.hide()
-        self.repaint()
 
         with mss.mss() as sct:
             monitor = sct.monitors[1]
@@ -77,15 +77,24 @@ class LiveOverlay(QWidget):
         self.raw_detections = detect_objects(self.model, frame)
 
         new_id_to_bbox = {}
+        current_hashes = set()
+
         for det in self.raw_detections:
             bbox = det["bbox"]
             cropped = crop_object(frame, {"bbox": bbox})
             img_hash = get_image_hash(cropped)
+            current_hashes.add(img_hash)
 
             found = False
             for existing_hash, obj_id in self.hash_to_id.items():
                 if abs(img_hash - existing_hash) <= 5:
                     new_id_to_bbox[obj_id] = bbox
+                    self.id_to_full_info[obj_id] = {
+                        "last_bbox": bbox,
+                        "last_frame": frame,
+                        "hash": img_hash,
+                        "active": True
+                    }
                     found = True
                     break
 
@@ -93,10 +102,23 @@ class LiveOverlay(QWidget):
                 obj_id = self.next_id
                 self.hash_to_id[img_hash] = obj_id
                 new_id_to_bbox[obj_id] = bbox
+                self.id_to_full_info[obj_id] = {
+                    "last_bbox": bbox,
+                    "last_frame": frame,
+                    "hash": img_hash,
+                    "active": True
+                }
                 self.next_id += 1
 
         self.id_to_bbox = new_id_to_bbox
+
+        for obj_id in self.id_to_full_info:
+            if obj_id not in self.id_to_bbox:
+                self.id_to_full_info[obj_id]["active"] = False
+
         self.update()
+
+
 
     def paintEvent(self, event):
         if not self.id_to_bbox:
@@ -122,11 +144,12 @@ class LiveOverlay(QWidget):
         while self.running:
             try:
                 command = listen_for_command()
-                # command = '열번째 제품 확인해줘'
+                # command = '3번 제품 보여줘'
                 result = interpret_command(command)
 
                 if result["action"] == "number":
                     self.handle_number(result["number"])
+                    QTimer.singleShot(0, self.shutdown)
                     break
                 elif result["action"] == "exit":
                     speak("인식을 종료합니다.")
@@ -143,14 +166,15 @@ class LiveOverlay(QWidget):
                 continue
 
     def handle_number(self, index):
-        if index not in self.id_to_bbox:
+        if index not in self.id_to_full_info:
             speak("잘못된 번호입니다.")
             return
 
         try:
-            speak(f"{index + 1}번 제품을 검색할게요.")
-            bbox = self.id_to_bbox[index]
-            cropped = crop_object(self.last_frame, {"bbox": bbox})
+            info = self.id_to_full_info[index]
+            frame = info["last_frame"]
+            bbox = info["last_bbox"]
+            cropped = crop_object(frame, {"bbox": bbox})
             clip_label = predict_label(cropped)
             product_name = generate_product_name(cropped, clip_label)
             url = search_naver_shopping(product_name)
@@ -158,21 +182,20 @@ class LiveOverlay(QWidget):
             if url:
                 print(f"[검색 결과] {url}")
                 speak("제품 판매 페이지를 열어드릴게요.")
-                webbrowser.open(url)
+                threading.Thread(target=webbrowser.open, args=(url,), daemon=True).start()
             else:
                 speak("검색 결과가 없습니다.")
         except Exception as e:
             print(f"[handle_number 오류] {e}")
             speak("검색 중 오류가 발생했어요.")
-        finally:
-            self.shutdown()
 
     def shutdown(self):
         self.running = False
+        self.voice_thread.join(timeout=1.0)
         self.timer.stop()
         self.hash_to_id.clear()
         self.id_to_bbox.clear()
+        self.id_to_full_info.clear()
         self.next_id = 0
         self.hide()
         self.close()
-        QApplication.quit()
