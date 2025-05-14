@@ -1,8 +1,12 @@
+# overlay_labels/LiveOverlay.py (해시 기반 제품 ID 매핑 적용)
+
 import mss
 import cv2
 import numpy as np
 import threading
 import webbrowser
+import imagehash
+from PIL import Image
 
 from PyQt5.QtWidgets import QWidget, QApplication
 from PyQt5.QtCore import Qt, QTimer
@@ -19,6 +23,12 @@ from gpt.product_name_generator import generate_product_name
 from search.naver_api import search_naver_shopping
 
 
+def get_image_hash(image_bgr):
+    image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+    image_pil = Image.fromarray(image_rgb)
+    return imagehash.phash(image_pil)
+
+
 class LiveOverlay(QWidget):
     def __init__(self):
         super().__init__()
@@ -29,7 +39,10 @@ class LiveOverlay(QWidget):
         self.voice_thread = None
         self.running = True
 
-        # 오버레이 설정
+        self.hash_to_id = {}      # 해시 → 고유 ID
+        self.id_to_bbox = {}      # ID → bbox
+        self.next_id = 0          # 다음 부여할 번호
+
         self.setWindowFlags(
             Qt.FramelessWindowHint |
             Qt.WindowStaysOnTopHint |
@@ -42,12 +55,10 @@ class LiveOverlay(QWidget):
         screen = self.screen().geometry()
         self.setGeometry(0, 0, screen.width(), screen.height())
 
-        # 객체 인식 타이머
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_detections)
-        self.timer.start(1000)
+        self.timer.start(100)
 
-        # 음성 인식 쓰레드 시작
         self.start_voice_thread()
 
     def update_detections(self):
@@ -64,24 +75,43 @@ class LiveOverlay(QWidget):
 
         self.last_frame = frame
         self.raw_detections = detect_objects(self.model, frame)
+
+        new_id_to_bbox = {}
+        for det in self.raw_detections:
+            bbox = det["bbox"]
+            cropped = crop_object(frame, {"bbox": bbox})
+            img_hash = get_image_hash(cropped)
+
+            found = False
+            for existing_hash, obj_id in self.hash_to_id.items():
+                if abs(img_hash - existing_hash) <= 5:
+                    new_id_to_bbox[obj_id] = bbox
+                    found = True
+                    break
+
+            if not found:
+                obj_id = self.next_id
+                self.hash_to_id[img_hash] = obj_id
+                new_id_to_bbox[obj_id] = bbox
+                self.next_id += 1
+
+        self.id_to_bbox = new_id_to_bbox
         self.update()
 
     def paintEvent(self, event):
-        if not self.raw_detections:
+        if not self.id_to_bbox:
             return
 
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        sorted_detections = sorted(self.raw_detections, key=lambda d: d["bbox"][0])
-
-        for idx, det in enumerate(sorted_detections):
-            x1, y1, x2, y2 = det["bbox"]
+        for obj_id, bbox in self.id_to_bbox.items():
+            x1, y1, x2, y2 = bbox
             painter.setPen(QPen(QColor(255, 0, 0), 2))
             painter.drawRect(x1, y1, x2 - x1, y2 - y1)
             painter.setFont(QFont("Arial", 14, QFont.Bold))
-            painter.setPen(QColor(255, 255, 0))
-            painter.drawText(x1 + 5, y1 - 10, f"No.{idx + 1}")
+            painter.setPen(QColor(255, 0, 0))
+            painter.drawText(x1 + 5, y1 - 10, f"No.{obj_id + 1}")
 
     def start_voice_thread(self):
         self.voice_thread = threading.Thread(target=self.voice_loop, daemon=True)
@@ -92,11 +122,12 @@ class LiveOverlay(QWidget):
         while self.running:
             try:
                 command = listen_for_command()
+                # command = '열번째 제품 확인해줘'
                 result = interpret_command(command)
 
                 if result["action"] == "number":
                     self.handle_number(result["number"])
-                    break  # 번호 감지 후 종료
+                    break
                 elif result["action"] == "exit":
                     speak("인식을 종료합니다.")
                     self.shutdown()
@@ -112,13 +143,13 @@ class LiveOverlay(QWidget):
                 continue
 
     def handle_number(self, index):
-        if index < 0 or index >= len(self.raw_detections):
+        if index not in self.id_to_bbox:
             speak("잘못된 번호입니다.")
             return
 
         try:
             speak(f"{index + 1}번 제품을 검색할게요.")
-            bbox = self.raw_detections[index]["bbox"]
+            bbox = self.id_to_bbox[index]
             cropped = crop_object(self.last_frame, {"bbox": bbox})
             clip_label = predict_label(cropped)
             product_name = generate_product_name(cropped, clip_label)
@@ -137,9 +168,11 @@ class LiveOverlay(QWidget):
             self.shutdown()
 
     def shutdown(self):
-        """오버레이 및 감지, 음성 루프, 앱 종료"""
         self.running = False
         self.timer.stop()
+        self.hash_to_id.clear()
+        self.id_to_bbox.clear()
+        self.next_id = 0
         self.hide()
         self.close()
         QApplication.quit()

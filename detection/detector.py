@@ -8,7 +8,7 @@ def detect_objects(model, image):
     :param image: BGR 이미지 (OpenCV)
     :return: 탐지된 객체 리스트 [ {bbox, class_id, conf}, ... ]
     """
-    print("[객체 탐지] 실행 중...")
+    # print("[객체 탐지] 실행 중...")
     results = model.predict(source=image, conf=0.4, verbose=False)
 
     detections = []
@@ -23,7 +23,7 @@ def detect_objects(model, image):
                 "class_id": class_id,
                 "confidence": conf
             })
-    print(f"[객체 탐지 완료] {len(detections)}개 객체")
+    # print(f"[객체 탐지 완료] {len(detections)}개 객체")
     return detections
 
 
