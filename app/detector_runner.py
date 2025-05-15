@@ -40,7 +40,7 @@ def update_detections(self):
 
         found = False
         for existing_hash, obj_id in self.hash_to_id.items():
-            if abs(img_hash - existing_hash) <= 5:
+            if abs(img_hash - existing_hash) <= 7:
                 new_id_to_bbox[obj_id] = bbox
                 self.id_to_full_info[obj_id] = {
                     "last_bbox": bbox,

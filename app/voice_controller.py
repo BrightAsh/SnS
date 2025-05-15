@@ -3,12 +3,13 @@
 import threading
 import webbrowser
 from core.utils.tts import speak
-from core.gpt.commands import interpret_command
+from core.gpt.commands import interpret_command, interpret_command_test
 from core.search.cropper import crop_object
-from core.gpt.product_name_generator import generate_product_name
+from core.gpt.product_identifier import  detect_product_name_from_image
 from core.search.naver_api import search_naver_shopping
 from core.utils.image_utils import get_image_hash
 from core.utils.cache_utils import save_cache
+from core.voice.listener import listen_for_command
 
 def start_voice_thread(self):
     self.voice_thread = threading.Thread(target=lambda: voice_loop(self), daemon=True)
@@ -18,9 +19,9 @@ def voice_loop(self):
     speak("제품 번호를 말씀해 주세요.")
     while self.running:
         try:
-            # command = listen_for_command()
-            command = '2번 제품 보여줘'
-            result = interpret_command(command)
+            command = listen_for_command()
+            # command = '2번 제품 보여줘'
+            result = interpret_command_test(command)
 
             if result["action"] == "number":
                 if result["number"] not in self.id_to_full_info:
@@ -56,7 +57,8 @@ def handle_number(self, index):
             print(f"[CACHE HIT] {url}")
 
         else:
-            product_name = generate_product_name(cropped)
+            product_name = detect_product_name_from_image(cropped)
+            print(product_name)
             if product_name in ['Unknown.', 'Unknown']:
                 speak("제품명을 찾지 못 했어요. 인식을 종료합니다.")
                 return

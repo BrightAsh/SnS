@@ -12,3 +12,4 @@ ultralytics
 open_clip_torch
 openai
 PyQt5
+google-cloud-vision

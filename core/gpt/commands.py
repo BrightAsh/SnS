@@ -45,3 +45,27 @@ JSON으로만 응답하세요.
         return result
     except json.JSONDecodeError:
         return {"action": "False", "number": None}
+
+
+
+
+def interpret_command_test(command: str) -> dict:
+    """
+    실제 GPT 호출 없이 고정된 테스트 응답 반환
+    """
+    command = command.strip().lower()
+
+    if "안녕" in command or "챗봇" in command:
+        return {"action": "wakeword", "number": None}
+    elif "인식" in command or "탐지" in command:
+        return {"action": "trigger", "number": None}
+    elif "종료" in command or "그만" in command:
+        return {"action": "exit", "number": None}
+    elif "번" in command:
+        import re
+        match = re.search(r"(\d+)\s*번", command)
+        if match:
+            num = int(match.group(1))
+            return {"action": "number", "number": max(0, num - 1)}
+    return {"action": "False", "number": None}
+

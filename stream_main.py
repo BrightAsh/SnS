@@ -3,7 +3,8 @@
 import sys
 from PyQt5.QtWidgets import QApplication
 
-from core.gpt.commands import interpret_command
+from core.gpt.commands import interpret_command, interpret_command_test
+from core.voice.listener import listen_for_command
 from core.utils.tts import speak
 from app.LiveOverlay import LiveOverlay
 
@@ -17,15 +18,15 @@ def run():
         try:
             speak("필요하시면 저를 불러주세요")
             # command = listen_for_command()
-            command = '안녕 챗봇'
-            result = interpret_command(command)
+            command = '안녕'
+            result = interpret_command_test(command)
 
             if result["action"] == "wakeword":
                 speak("무엇을 도와드릴까요?")
                 while True:
                     # follow_up = listen_for_command()
-                    follow_up = '제품 인식'
-                    result = interpret_command(follow_up)
+                    follow_up = '인식'
+                    result = interpret_command_test(follow_up)
 
                     if result["action"] == "trigger":
                         speak("제품 인식을 시작합니다.")
