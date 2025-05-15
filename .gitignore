@@ -7,3 +7,4 @@ yolov8x.pt
 yolo11n.pt
 yolo11x.pt
 yolov8x-oiv7.pt
+core/cache/

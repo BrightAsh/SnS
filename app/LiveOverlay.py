@@ -7,7 +7,7 @@ from core.detection.model_loader import load_model
 from app.detector_runner import update_detections
 from app.draw import draw_objects
 from app.voice_controller import start_voice_thread
-
+from core.utils.cache_utils import load_cache
 
 class LiveOverlay(QWidget):
     def __init__(self):
@@ -23,6 +23,7 @@ class LiveOverlay(QWidget):
         self.id_to_bbox = {}
         self.id_to_full_info = {}
         self.next_id = 0
+        self.imagehash_to_url = load_cache()
 
         self.setWindowFlags(
             Qt.FramelessWindowHint |
