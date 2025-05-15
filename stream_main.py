@@ -3,10 +3,9 @@
 import sys
 from PyQt5.QtWidgets import QApplication
 
-from voice.listener import listen_for_command
-from gpt.commands import interpret_command
-from utils.tts import speak
-from overlay_labels.LiveOverlay import LiveOverlay
+from core.gpt.commands import interpret_command
+from core.utils.tts import speak
+from app.LiveOverlay import LiveOverlay
 
 app = QApplication(sys.argv)
 
@@ -16,30 +15,31 @@ def run():
 
     while True:
         try:
-            speak("필요하시면 챗봇이라고 불러주세요")
+            speak("필요하시면 저를 불러주세요")
             # command = listen_for_command()
             command = '안녕 챗봇'
             result = interpret_command(command)
 
             if result["action"] == "wakeword":
                 speak("무엇을 도와드릴까요?")
-                # follow_up = listen_for_command()
-                follow_up = '제품 인식'
-                result = interpret_command(follow_up)
+                while True:
+                    # follow_up = listen_for_command()
+                    follow_up = '제품 인식'
+                    result = interpret_command(follow_up)
 
-                if result["action"] == "trigger":
-                    speak("제품 인식을 시작합니다.")
-                    overlay = LiveOverlay()
-                    overlay.show()
-                    while True:
-                        app.processEvents()
-                        if not overlay.running or not overlay.isVisible():
-                            break
-                elif result["action"] == "exit":
-                    speak("종료합니다.")
-                    break
-                else:
-                    speak("다시 말씀해 주세요.")
+                    if result["action"] == "trigger":
+                        speak("제품 인식을 시작합니다.")
+                        overlay = LiveOverlay()
+                        overlay.show()
+                        while True:
+                            app.processEvents()
+                            if not overlay.running or not overlay.isVisible():
+                                break
+                    elif result["action"] == "exit":
+                        speak("종료합니다.")
+                        break
+                    else:
+                        speak("다시 말씀해 주세요.")
 
             else:
                 print("[대기 중] '챗봇' 호출 대기 중...")

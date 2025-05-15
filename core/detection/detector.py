@@ -27,12 +27,3 @@ def detect_objects(model, image):
     return detections
 
 
-if __name__ == "__main__":
-    from screen.capture import capture_screen
-    from detection.model_loader import load_model
-    from detection.detector import detect_objects
-
-    img = capture_screen()
-    model = load_model()
-    results = detect_objects(model, img)
-    print(results)
