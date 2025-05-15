@@ -5,6 +5,8 @@ import mss
 from core.search.cropper import crop_object
 from core.utils.image_utils import get_image_hash
 from core.detection.detector import detect_objects
+from config.settings import EXCLUDE_CLASSES
+
 
 def update_detections(self):
     self.hide()
@@ -20,6 +22,10 @@ def update_detections(self):
 
     new_id_to_bbox = {}
     current_hashes = set()
+
+    self.raw_detections = [
+        det for det in self.raw_detections if self.model.names[det["class_id"]] not in EXCLUDE_CLASSES
+    ]
 
     self.raw_detections = sorted(
         self.raw_detections,
